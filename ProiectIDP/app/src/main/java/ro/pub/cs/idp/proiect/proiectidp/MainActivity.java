@@ -15,25 +15,28 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
-import android.widget.ArrayAdapter;
+
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.sql.Time;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 public class MainActivity extends AppCompatActivity {
@@ -118,10 +121,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     class WifiReceiver extends BroadcastReceiver {
-
+        Context context;
         @Override
         public void onReceive(Context context, Intent intent) {
-
+            this.context = context;
             wifiList = mainWifi.getScanResults();
             //Toast.makeText(MainActivity.this, "found " + wifiList.size() + " networks", Toast.LENGTH_LONG).show();
 
@@ -130,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
             for(int i = 0 ; i < wifiList.size() ; i++) {
                 networks.add(wifiList.get(i));
 
-                ContentValues row = new ContentValues();
+                final ContentValues row = new ContentValues();
                 row.put("ssid", wifiList.get(i).SSID);
                 row.put("bssid", wifiList.get(i).BSSID);
                 row.put("level", wifiList.get(i).level);
@@ -140,7 +143,38 @@ public class MainActivity extends AppCompatActivity {
                 DateFormat d = new SimpleDateFormat("HH:mm:ss a - d/M");
                 row.put("time", d.format(new Date()));
                 db.insert("data",null,row);
+
+
+                RequestQueue MyRequestQueue = Volley.newRequestQueue(context);
+
+                String url = "http://109.100.198.117/data";
+                StringRequest MyStringRequest = new StringRequest(Request.Method.POST, url, new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        //This code is executed if the server responds, whether or not the response contains data.
+                        //The String 'response' contains the server's response.
+                    }
+                }, new Response.ErrorListener() { //Create an error listener to handle errors appropriately.
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        //This code is executed if there is an error.
+                    }
+                }) {
+                    protected Map<String, String> getParams() {
+                        Map<String, String> MyData = new HashMap<String, String>();
+                        MyData.put("ssid", row.get("ssid").toString()); //Add the data you'd like to send to the server.
+                        MyData.put("bssid", row.get("bssid").toString());
+                        MyData.put("freq", row.get("frequency").toString());
+                        MyData.put("level", row.get("level").toString());
+                        MyData.put("time", row.get("time").toString());
+                        return MyData;
+                    }
+                };
+
+
+            MyRequestQueue.add(MyStringRequest);
             }
+
 
             adapter.notifyDataSetChanged();
             mainWifi.startScan();
